@@ -1,0 +1,202 @@
+---
+title: "Uber_PublicData_Exercise"
+author: "Nashrah Ahmed"
+date: "November 14, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE, results='hide', warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(fig.path="figures/",
+                      cache.path="cache/",
+                      cache=FALSE,
+                      echo=TRUE,
+                      message=FALSE,
+                      warning=FALSE)
+library(readr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(anytime)
+library(dplyr)
+library(qwraps2)
+library(plyr)
+library(cowplot)
+library(sm)
+library(ggplot2)
+library(ggpubr)
+library(gridExtra)
+theme_set(theme_pubr())
+```
+
+#Open and evaluate sample Bike Share Program data set
+```{r data}
+setwd("/Users/Nashrah/Desktop")
+u_data <- read.csv("CommOps Data Set.csv")
+u_sub <- na.omit(u_data)
+head(u_sub,5)
+```
+
+```{r}
+u_sub$Zip_Test <- nchar(as.character(u_sub$Zip.Code))
+u_sub$Zip_Val <- ifelse(u_sub$Zip_Test>=5, "CHECK", "DISCARD")
+u_sub$Zip_Val1 <- ifelse(grepl(pattern = "^[9]+", u_sub$Zip.Code), "yes", "no")
+
+u_sub2 <- u_sub %>%
+  filter(Zip_Val == "DISCARD" & Zip_Val1 == "yes")
+
+u_sub1 <- u_sub %>%
+  filter(Zip_Val == "CHECK" & Zip_Val1 == "yes")
+
+head(u_sub1)
+```
+
+```{r}
+u_sub1$S_date <- strptime(u_sub1$Start.Date, "%m/%d/%Y %H:%M")
+u_sub1$E_date <- strptime(u_sub1$End.Date, "%m/%d/%Y %H:%M")
+head(u_sub1,5)
+```
+
+#Updated data set with 15 new columns
+```{r}
+u_sub1$S_hour <- as.integer(strftime(u_sub1$S_date, format="%H"))
+u_sub1$S_tofday <- ifelse(u_sub1$S_hour>=12, "PM", "AM")
+
+u_sub1$E_hour <- as.integer(strftime(u_sub1$E_date, format="%H"))
+u_sub1$E_tofday <- ifelse(u_sub1$E_hour>=12, "PM", "AM")
+
+u_sub1$TofDay <- ifelse(u_sub1$S_tofday==u_sub1$E_tofday, u_sub1$S_tofday, "AM-PM")
+
+u_sub1$S_wday <- weekdays(u_sub1$S_date)
+u_sub1$E_wday <- weekdays(u_sub1$E_date)
+
+as.numeric.factor <- function(x) {as.numeric(levels(x))[x]}
+u_sub1$Zip_Int <- as.numeric.factor(u_sub1$Zip.Code)
+u_sub1$Zip_Int <- as.integer(u_sub1$Zip_Int)
+
+u_sub1$Zip_Bkt <- cut(u_sub1$Zip_Int, breaks = c(90000, 91000, 92000, 93000, 94000, 95000, 96000, 97000, 98000, 99000, 99999, 99999999999), labels = c("90-", "91-", "92-", "93-", "94-", "95-", "96-", "97-", "98-", "99-", "999-"), include.lowest=TRUE)
+
+head(u_sub1, 5)
+```
+
+#Experimental visualizations
+```{r}
+p <- ggplot(u_sub1, aes(x=TofDay, y=Duration, color=TofDay)) + 
+  geom_boxplot()
+# Box plot with dot plot
+p + geom_dotplot(binaxis='y', stackdir='center', dotsize=1)
+# Box plot with jittered points
+# 0.2 : degree of jitter in x direction
+p + geom_jitter(shape=16, position=position_jitter(0.2))
+```
+```{r}
+p1 <- ggplot(u_sub1, aes(x=S_wday, y=Duration, color=TofDay)) + 
+  geom_boxplot()
+# Box plot with dot plot
+p1 + geom_dotplot(binaxis='y', stackdir='center', dotsize=1)
+# Box plot with jittered points
+# 0.2 : degree of jitter in x direction
+p1 + geom_jitter(shape=16, position=position_jitter(0.2))
+```
+```{r}
+p2 <- ggplot(u_sub1, aes(x=Subscriber.Type, y=Duration, color=TofDay)) + 
+  geom_boxplot()
+# Box plot with dot plot
+p2 + geom_dotplot(binaxis='y', stackdir='center', dotsize=1)
+# Box plot with jittered points
+# 0.2 : degree of jitter in x direction
+p2 + geom_jitter(shape=16, position=position_jitter(0.2))
+```
+
+```{r}
+p3 <- ggplot(u_sub1, aes(x=Zip_Bkt, y=Duration, color=TofDay)) + 
+  geom_boxplot()
+# Box plot with dot plot
+p3 + geom_dotplot(binaxis='y', stackdir='center', dotsize=1)
+# Box plot with jittered points
+# 0.2 : degree of jitter in x direction
+p3 + geom_jitter(shape=16, position=position_jitter(0.2))
+```
+```{r}
+grid.arrange(p, p1, p2, p3)
+```
+
+```{r}
+g <- ggplot(u_sub1, aes(Zip_Bkt)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()
+g
+```
+
+```{r}
+g1 <- ggplot(u_sub1, aes(S_wday)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()
+g1
+```
+
+```{r}
+g2 <- ggplot(u_sub1, aes(TofDay)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()
+g2
+```
+
+```{r}
+g3 <- ggplot(u_sub1, aes(Subscriber.Type)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()
+g3
+```
+
+```{r}
+grid.arrange(g, g1, g2, g3)
+```
+```{r}
+gg1 <- ggplot(u_sub1, aes(x = Duration, fill = Zip_Bkt)) +
+  geom_density(alpha = 0.3) + theme_bw() +
+  theme(legend.position = c(0.8, 0.8)) +
+  xlim(0,2500)
+gg1
+```
+
+```{r}
+gg2 <- ggplot(u_sub1, aes(x = Duration, fill = TofDay)) +
+  geom_density(alpha = 0.3) + theme_bw() +
+  theme(legend.position = c(0.8, 0.8)) +
+  xlim(0,2500)
+gg2
+```
+
+```{r}
+gg3 <- ggplot(u_sub1, aes(x = Duration, fill = S_wday)) +
+  geom_density(alpha = 0.3) + theme_bw() +
+  theme(legend.position = c(0.8, 0.8)) +
+  xlim(0,2500)
+gg3
+```
+
+```{r}
+gg4 <- ggplot(u_sub1, aes(x = Duration, fill = Subscriber.Type)) +
+  geom_density(alpha = 0.3) + theme_bw() +
+  theme(legend.position = c(0.8, 0.8)) +
+  xlim(0,2500)
+gg4
+```
+
+```{r}
+plot_grid(gg1, gg2, gg3, gg4, labels = "AUTO")
+```
+
+#Multivariate OLS regression to potentially corroborate key takeaways above
+```{r}
+u_sub1$SubTypeDummy = ifelse(u_sub1$Subscriber.Type == "Subscriber", 1, 0)
+lm <- lm(u_sub1$Duration ~ u_sub1$S_wday + u_sub1$SubTypeDummy + u_sub1$TofDay + u_sub1$Zip_Bkt, u_sub1)
+summary(lm)
+```
+
+#Save both new (clean) data set and (flawed) defect data set 
+```{r}
+write.csv(u_sub1, file = "Nashrah_CommOps Data Set_Updated.csv")
+write.csv(u_sub2, file = "Nashrah_CommOps Data Set_Defect.csv")
+```
